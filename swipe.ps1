@@ -41,7 +41,7 @@ while($true)
     {
         #Write-Host "Entered username: $user"
         $aduser = Get-ADUser -Searchbase "OU=Staff,OU=People,DC=Domain,DC=EDU" -SearchScope Subtree -Filter {samaccountname -eq $user} -Properties employeeID, description
-        Write-Host $aduser.EmployeeIDjlander
+        Write-Host $aduser.EmployeeID
     }
     else
     {
