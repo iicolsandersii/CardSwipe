@@ -23,8 +23,6 @@ while($true)
     # database file
     $database = "$PSScriptRoot\Names.SQLite"
 
-    Write-Host $database
-
     # check if database file exists
     $databaseExist = Test-Path $database
 
