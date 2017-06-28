@@ -35,60 +35,74 @@ while($true)
         Invoke-SqliteQuery -Query $tableQuery -DataSource $database
     }
 
-    if ($user.length -lt 16)
+    if ($user -eq "export")
     {
-        #Write-Host "Entered username: $user"
-        $aduser = Get-ADUser -Searchbase "OU=Staff,OU=People,DC=Domain,DC=EDU" -SearchScope Subtree -Filter {samaccountname -eq $user} -Properties employeeID, description   
+        Write-Host "`nExporting list of entries..." -foregroundcolor "yellow"
+
+        # creating list of users
+        $names = Invoke-SqliteQuery -DataSource $database -Query "SELECT * FROM NAMES"
+
+        $names | Select-Object Fullname, Email | Export-CSV -LiteralPath "$PSScriptRoot\UserEntries.csv"
+
+        Write-Host "`nList: $PSScriptRoot\UserEntries.csv Exported!" -foregroundcolor "green"
     }
     else
     {
-        # since it appears this is a card swipe, we need to trim some characters
-        # example card swipe: ;001234567=1111?
-    
-        #remove last 6 characters from input
-        $emplid = $user.Substring(0,$user.Length-6)
-
-        #remove first character from emplid variable
-        $emplid = $emplid.Replace(";00","")
-
-        #Write-Host "Entered Employee ID: $emplid"
-        $aduser = Get-ADUser -Searchbase "OU=Staff,OU=People,DC=Domain,DC=EDU" -SearchScope Subtree -Filter {employeeid -eq $emplid} -Properties employeeID, description
-        #$aduser.EmployeeID
-    }
-
-    if (!$aduser)
-    {
-        Write-Host "Could not find AD account with input: $user!" -ForegroundColor "Red"
-    }
-    else
-    {
-        if ($($aduser.EmployeeID) -like "")
+        if ($user.length -lt 16)
         {
-            Write-Host "`nAccount not eligible for drawing!" -foregroundcolor "red"
+            #Write-Host "Entered username: $user"
+            $aduser = Get-ADUser -Searchbase "OU=Staff,OU=People,DC=Domain,DC=EDU" -SearchScope Subtree -Filter {samaccountname -eq $user} -Properties employeeID, description   
         }
         else
         {
-              # Insert Query called by Invoke-SQLQuery
-            $userInsert = "INSERT INTO NAMES (EmplID, Fullname, Username, Email, Won) VALUES (@empl, @full, @user, @email, 0)"
+            # since it appears this is a card swipe, we need to trim some characters
+            # example card swipe: ;001234567=1111?
+    
+            #remove last 6 characters from input
+            $emplid = $user.Substring(0,$user.Length-6)
 
-            #check if already entered
-            $names = Invoke-SqliteQuery -DataSource $database -Query "SELECT * FROM NAMES"
+            #remove first character from emplid variable
+            $emplid = $emplid.Replace(";00","")
 
-            if ($names.Username -eq $aduser.Name)
+            #Write-Host "Entered Employee ID: $emplid"
+            $aduser = Get-ADUser -Searchbase "OU=Staff,OU=People,DC=Domain,DC=EDU" -SearchScope Subtree -Filter {employeeid -eq $emplid} -Properties employeeID, description
+            #$aduser.EmployeeID
+        }
+
+        if (!$aduser)
+        {
+            Write-Host "Could not find AD account with input: $user!" -ForegroundColor "Red"
+        }
+        else
+        {
+            if ($($aduser.EmployeeID) -like "")
             {
-                Write-Host "`n$($aduser.description) already has been entered!" -foregroundcolor "magenta"
+              Write-Host "`nAccount not eligible for drawing!" -foregroundcolor "red"
             }
             else
             {
-                Invoke-SqliteQuery -DataSource $database -Query $userInsert -OutVariable $insertResult -SqlParameters @{
-                    empl  = $($aduser.EmployeeID)
-                    full  = $($aduser.description)
-                    user  = $($aduser.SamAccountName)
-                    email = $($aduser.UserPrincipalName)
+                # Insert Query called by Invoke-SQLQuery
+                $userInsert = "INSERT INTO NAMES (EmplID, Fullname, Username, Email, Won) VALUES (@empl, @full, @user, @email, 0)"
+
+                # get list of users that have already entered
+                $names = Invoke-SqliteQuery -DataSource $database -Query "SELECT * FROM NAMES"
+
+                if ($names.Username -eq $aduser.Name)
+                {
+                   Write-Host "`n$($aduser.description) already has been entered!" -foregroundcolor "magenta"
+                }
+                else
+                {
+                    Invoke-SqliteQuery -DataSource $database -Query $userInsert -OutVariable $insertResult -SqlParameters @{
+                        empl  = $($aduser.EmployeeID)
+                        full  = $($aduser.description)
+                        user  = $($aduser.SamAccountName)
+                        email = $($aduser.UserPrincipalName)
                 }
 
-                Write-Host "`n$($aduser.description) has been entered!" -foregroundcolor "green"
-            }  
+                    Write-Host "`n$($aduser.description) has been entered!" -foregroundcolor "green"
+                }  
+            }
         }
     }
 }
